@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Excel Analytics Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- SheetJS for Excel parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- Chart.js Date adapter -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/3.0.0/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <!-- jsPDF for report export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <!-- UPLOAD SCREEN -->
+  <div id="upload-screen" class="screen active">
+    <div class="upload-bg"></div>
+    <div class="upload-container">
+      <div class="logo-badge">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">DataPulse</span>
+      </div>
+      <h1 class="upload-title">Excel Analytics<br /><em>Dashboard</em></h1>
+      <p class="upload-sub">Upload your Excel file (.xlsx / .xls) to instantly generate<br />interactive KPIs, visuals, slicers, timelines & AI insights.</p>
+
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">📊</div>
+        <div class="drop-label">Drag & Drop your Excel file here</div>
+        <div class="drop-or">— or —</div>
+        <label class="btn-upload" for="fileInput">Browse File</label>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden />
+        <div class="drop-hint">Supports .xlsx · .xls · .csv — up to 50 MB</div>
+      </div>
+
+      <div id="upload-progress" class="upload-progress hidden">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-label" id="progressLabel">Reading file…</div>
+      </div>
+
+      <div class="sample-btn-wrap">
+        <button class="btn-sample" id="loadSample">⚡ Load Sample Dataset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD SCREEN -->
+  <div id="dashboard-screen" class="screen">
+
+    <!-- HEADER -->
+    <header class="dash-header">
+      <div class="header-left">
+        <span class="logo-badge small">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">DataPulse</span>
+        </span>
+        <div class="file-info">
+          <span id="fileName" class="file-name">—</span>
+          <span id="fileRows" class="file-meta">— rows · — cols</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="hdr-btn" id="refreshBtn" title="Re-run Analysis">🔄 Refresh</button>
+        <button class="hdr-btn accent" id="reportBtn" title="Generate PDF Report">📄 Generate Report</button>
+        <button class="hdr-btn danger" id="newFileBtn" title="Upload New File">📂 New File</button>
+      </div>
+    </header>
+
+    <!-- SLICERS & TIMELINE BAR -->
+    <div class="slicer-bar" id="slicerBar">
+      <div class="slicer-label">🎛 Filters</div>
+      <div class="slicers-wrap" id="slicersWrap">
+        <!-- Dynamically injected -->
+      </div>
+      <div class="timeline-wrap">
+        <span class="slicer-label">📅 Timeline</span>
+        <select id="timelineCol" class="slicer-select"></select>
+        <input type="date" id="dateFrom" class="date-input" />
+        <span class="date-sep">→</span>
+        <input type="date" id="dateTo" class="date-input" />
+        <button class="btn-apply" id="applyFilters">Apply ✓</button>
+        <button class="btn-clear" id="clearFilters">Clear ✗</button>
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpi-section">
+      <div class="kpi-grid" id="kpiGrid">
+        <!-- Dynamically injected KPI cards -->
+      </div>
+    </div>
+
+    <!-- CHARTS GRID -->
+    <div class="charts-section">
+      <div class="charts-grid" id="chartsGrid">
+        <div class="chart-card" id="card-bar">
+          <div class="chart-card-header">
+            <span class="chart-title" id="title-bar">Bar Chart</span>
+            <div class="chart-actions">
+              <select class="chart-col-select" id="barColX"></select>
+              <select class="chart-col-select" id="barColY"></select>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+        </div>
+
+        <div class="chart-card" id="card-line">
+          <div class="chart-card-header">
+            <span class="chart-title" id="title-line">Trend Line</span>
+            <div class="chart-actions">
+              <select class="chart-col-select" id="lineColX"></select>
+              <select class="chart-col-select" id="lineColY"></select>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+        </div>
+
+        <div class="chart-card" id="card-pie">
+          <div class="chart-card-header">
+            <span class="chart-title">Distribution</span>
+            <div class="chart-actions">
+              <select class="chart-col-select" id="pieCol"></select>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+        </div>
+
+        <div class="chart-card" id="card-scatter">
+          <div class="chart-card-header">
+            <span class="chart-title">Scatter / Correlation</span>
+            <div class="chart-actions">
+              <select class="chart-col-select" id="scatterX"></select>
+              <select class="chart-col-select" id="scatterY"></select>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="scatterChart"></canvas></div>
+        </div>
+
+        <div class="chart-card wide" id="card-hbar">
+          <div class="chart-card-header">
+            <span class="chart-title">Horizontal Ranking</span>
+            <div class="chart-actions">
+              <select class="chart-col-select" id="hbarColX"></select>
+              <select class="chart-col-select" id="hbarColY"></select>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="hbarChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEEP ANALYSIS & INSIGHTS -->
+    <div class="analysis-section">
+      <div class="analysis-grid">
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span class="analysis-icon">🧠</span>
+            <span class="analysis-title">Deep Analysis</span>
+            <button class="btn-run" id="runAnalysis">▶ Run Analysis</button>
+          </div>
+          <div class="analysis-body" id="analysisBody">
+            <div class="analysis-placeholder">Click <strong>Run Analysis</strong> to generate deep statistical insights from your data.</div>
+          </div>
+        </div>
+
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span class="analysis-icon">💡</span>
+            <span class="analysis-title">AI Insights</span>
+            <button class="btn-run green" id="runInsights">▶ Generate Insights</button>
+          </div>
+          <div class="analysis-body" id="insightsBody">
+            <div class="analysis-placeholder">Click <strong>Generate Insights</strong> to surface key findings and recommendations.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATA TABLE -->
+    <div class="table-section">
+      <div class="table-header-row">
+        <span class="section-title">📋 Data Preview</span>
+        <div class="table-controls">
+          <input type="text" id="tableSearch" class="table-search" placeholder="🔍 Search data…" />
+          <span id="tableCount" class="table-count">— rows</span>
+        </div>
+      </div>
+      <div class="table-wrap" id="tableWrap">
+        <!-- Dynamically injected -->
+      </div>
+      <div class="table-pagination" id="tablePagination"></div>
+    </div>
+
+    <!-- REPORT MODAL -->
+    <div id="reportModal" class="modal hidden">
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>📄 Report Generator</span>
+          <button class="modal-close" id="closeModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <label class="modal-label">Report Title</label>
+          <input type="text" id="reportTitle" class="modal-input" value="Executive Analytics Report" />
+          <label class="modal-label">Include Sections</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="rptKpi" checked /> KPI Summary</label>
+            <label><input type="checkbox" id="rptCharts" checked /> Charts & Visuals</label>
+            <label><input type="checkbox" id="rptAnalysis" checked /> Deep Analysis</label>
+            <label><input type="checkbox" id="rptInsights" checked /> AI Insights</label>
+            <label><input type="checkbox" id="rptTable" checked /> Data Table (top 50)</label>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-gen-report" id="genPdfBtn">⚡ Generate PDF Now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPINNER OVERLAY -->
+    <div id="spinner" class="spinner-overlay hidden">
+      <div class="spinner-box">
+        <div class="spinner-ring"></div>
+        <div class="spinner-msg" id="spinnerMsg">Processing…</div>
+      </div>
+    </div>
+
+  </div><!-- /dashboard-screen -->
+
+  <script src="app.js"></script>
+</body>
+</html>
